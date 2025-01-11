@@ -1,5 +1,5 @@
 # Script to create and customize folders with icons
-# Author: Oonie11
+# Author: Oonie11 (Modified version)
 # Date: January 4, 2025
 
 # Define paths dynamically based on script location
@@ -26,13 +26,13 @@ if (-not (Test-Path $iconsPath)) {
 
 foreach ($folder in $folders) {
     $folderPath = Join-Path $basePath $folder
-    $iconPath = Join-Path $iconsPath "$folder.ico"
+    $sourceIconPath = Join-Path $iconsPath "$folder.ico"
     
     Write-Host "`nProcessing folder: $folder" -ForegroundColor Cyan
     
     # Validate icon existence
-    if (-not (Test-Path $iconPath)) {
-        Write-Host "Warning: Icon not found for $folder at: $iconPath" -ForegroundColor Yellow
+    if (-not (Test-Path $sourceIconPath)) {
+        Write-Host "Warning: Icon not found for $folder at: $sourceIconPath" -ForegroundColor Yellow
         Write-Host "Skipping icon assignment for this folder" -ForegroundColor Yellow
         continue
     }
@@ -40,7 +40,7 @@ foreach ($folder in $folders) {
     # Create folder with error handling
     try {
         if (-not (Test-Path $folderPath)) {
-            New-Item -Path $folderPath -ItemType Directory -ErrorAction Stop
+            New-Item -Path $folderPath -ItemType Directory -ErrorAction Stop | Out-Null
             Write-Host "Created folder: $folder" -ForegroundColor Green
         } else {
             Write-Host "Folder already exists: $folder" -ForegroundColor Gray
@@ -50,33 +50,40 @@ foreach ($folder in $folders) {
         continue
     }
     
-    # Set attributes with error handling
+    # Copy icon file and set up folder icon
+    $destinationIconPath = Join-Path $folderPath "$folder.ico"
     try {
-        Set-ItemProperty -Path $folderPath -Name Attributes -Value ([System.IO.FileAttributes]::System + [System.IO.FileAttributes]::ReadOnly)
-        Write-Host "Set system and read-only attributes for: $folder" -ForegroundColor Green
-    } catch {
-        Write-Host "Error setting attributes for $folder : $_" -ForegroundColor Red
-    }
-
-    # Create desktop.ini with error handling
-    $iniContent = @"
+        # Copy the icon file
+        Copy-Item -Path $sourceIconPath -Destination $destinationIconPath -Force
+        Write-Host "Copied icon file to folder: $folder" -ForegroundColor Green
+        
+        # Create and configure desktop.ini
+        $iniContent = @"
 [.ShellClassInfo]
-IconResource=$iconPath,0
+IconResource=.\$folder.ico,0
 [ViewState]
 Mode=
 Vid=
 FolderType=Generic
 "@
-
-    try {
         $iniPath = Join-Path $folderPath "desktop.ini"
         $iniContent | Out-File $iniPath -Encoding Unicode -Force
+
+        # Set folder attributes
+        Set-ItemProperty -Path $folderPath -Name Attributes -Value ([System.IO.FileAttributes]::System + [System.IO.FileAttributes]::ReadOnly)
+        Write-Host "Set system and read-only attributes for: $folder" -ForegroundColor Green
         
-        # Set attributes for desktop.ini
+        # Set desktop.ini attributes
         Set-ItemProperty -Path $iniPath -Name Attributes -Value ([System.IO.FileAttributes]::System + [System.IO.FileAttributes]::Hidden)
         Write-Host "Applied icon configuration to: $folder" -ForegroundColor Green
+        
+        # Finally, hide the icon file
+        Set-ItemProperty -Path $destinationIconPath -Name Attributes -Value ([System.IO.FileAttributes]::Hidden)
+        Write-Host "Hidden icon file in folder: $folder" -ForegroundColor Green
+        
     } catch {
-        Write-Host "Error creating desktop.ini for $folder : $_" -ForegroundColor Red
+        Write-Host "Error setting up folder $folder : $_" -ForegroundColor Red
+        continue
     }
 }
 
