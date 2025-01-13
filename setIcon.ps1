@@ -14,7 +14,7 @@ $folders = @(
     "Scripts", 
     "Desktop Folders",
     "Portable Apps",
-    "Games"
+    "Games", "EBooks"
 )
 
 # Ensure icons directory exists
